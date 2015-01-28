@@ -4,9 +4,15 @@ require "json"
 
 module SearchMe
   class RequestSession
-    attr_reader :server_address, :index, :index_times, :query_times, :query_results
+    attr_reader :server_address,
+                :index,
+                :index_times,
+                :query_times,
+                :query_results,
+                :difficulty
 
-    def initialize(server_address)
+    def initialize(server_address, difficulty = 2)
+      @difficulty = difficulty
       @server_address = server_address
       @index_times = []
       @query_times = []
@@ -50,19 +56,31 @@ module SearchMe
         end
         index_times << (Time.now - start)
       end
+      puts "finished prep!"
     end
 
     def run_queries
-      500.times do
-        word = index.keys.sample
-        answer = index[word]
-        puts "will query against word \"#{word}\""
-        puts "and expect result #{answer}"
+      q = Queue.new
 
-        start = Time.now
-          result = JSON.parse(Faraday.post("#{server_address}/query", {query: word}).body)
-        query_times << (Time.now - start)
-        query_results[word] = result
+      500.times { q.push(index.keys.sample) }
+
+      (0..difficulty).each do |i|
+        Thread.new do
+          begin
+            while word = q.pop(true)
+              answer = index[word]
+              puts "will query against word \"#{word}\""
+              puts "and expect result #{answer}"
+              start = Time.now
+              result = JSON.parse(Faraday.post("#{server_address}/query", {query: word}).body)
+              query_times << (Time.now - start)
+              query_results[word] = result
+            end
+          rescue ThreadError
+            puts "queue empty, done"
+            #end the thread when the queue is empty
+          end
+        end.join
       end
     end
 
