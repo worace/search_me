@@ -109,8 +109,11 @@ module SearchMe
 
       puts "correct queries: #{correct.count}"
       puts "incorrect: #{incorrect.count}"
-      puts incorrect
       puts "success ratio: #{incorrect.any? ? (correct.count / incorrect.count) : "100" }%"
+
+      if incorrect.any?
+        puts "incorrect words: #{incorrect}"
+      end
     end
 
     def run
