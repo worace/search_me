@@ -48,12 +48,12 @@ module SearchMe
           end
           puts res
         end
-        query_times << (Time.now - start)
+        index_times << (Time.now - start)
       end
     end
 
     def run_queries
-      100.times do
+      500.times do
         word = index.keys.sample
         answer = index[word]
         puts "will query against word \"#{word}\""
@@ -67,7 +67,21 @@ module SearchMe
     end
 
     def output_results
+      puts "indexed #{source_files.count} files in average of #{index_times.reduce(:+)/index_times.length} seconds"
       puts "performed 100 queries in average of #{query_times.reduce(:+)/query_times.length} seconds"
+      correct = []
+      incorrect = []
+      query_results.each do |word, results|
+        if (results - @index[word]).count == 0
+          correct << word
+        else
+          incorrect << word
+        end
+      end
+
+      puts "correct queries: #{correct.count}"
+      puts "incorrect: #{incorrect.count}"
+      puts "success ratio: #{incorrect.any? ? (correct.count / incorrect.count) : "100" }%"
     end
 
     def run
@@ -83,18 +97,11 @@ module SearchMe
   end
 end
 
-class SearchRequestSession
-end
-
-#raise SearchRequestSession.new("localhost:3000").source_files.inspect
-
 # Prep phase
 # 45s ? 60s?
 # bronze/silver/gold for index time?
 # send N files successively
 # contestant must index files
-#
-
 # Search phase
 # choose random file random line random word position
 # send word
@@ -103,10 +110,9 @@ end
 # Throughput/resp time thresholds ??
 # bronze / silver / gold?
 #
-#
-        #file = source_files.sample
-        #lines = File.readlines(file)
-        #line_index = rand(lines.length)
-        ##puts "words: #{lines[line_index].split}"
-        #word_index = rand(lines[line_index].split.length).to_i
-        #word = lines[line_index].split[word_index]
+#file = source_files.sample
+#lines = File.readlines(file)
+#line_index = rand(lines.length)
+##puts "words: #{lines[line_index].split}"
+#word_index = rand(lines[line_index].split.length).to_i
+#word = lines[line_index].split[word_index]

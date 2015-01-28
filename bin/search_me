@@ -3,6 +3,4 @@
 require File.join(__dir__, "..", "lib", "search_me")
 puts ARGV
 
-#check argv[0] for uri
-
 SearchMe::RequestSession.new(ARGV[0]).run
