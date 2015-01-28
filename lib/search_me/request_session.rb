@@ -128,23 +128,3 @@ module SearchMe
     end
   end
 end
-
-# Prep phase
-# 45s ? 60s?
-# bronze/silver/gold for index time?
-# send N files successively
-# contestant must index files
-# Search phase
-# choose random file random line random word position
-# send word
-# verify client response match
-#
-# Throughput/resp time thresholds ??
-# bronze / silver / gold?
-#
-#file = source_files.sample
-#lines = File.readlines(file)
-#line_index = rand(lines.length)
-##puts "words: #{lines[line_index].split}"
-#word_index = rand(lines[line_index].split.length).to_i
-#word = lines[line_index].split[word_index]
