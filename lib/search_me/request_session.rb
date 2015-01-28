@@ -126,7 +126,7 @@ module SearchMe
     end
 
     def source_files
-      Dir.glob("./source_files/*")
+      Dir.glob(File.join(__dir__, "..", "..", "source_files", "*"))
     end
   end
 end
