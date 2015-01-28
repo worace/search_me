@@ -1,16 +1,17 @@
 require "faraday"
-require 'net/http/post/multipart'
+require "net/http/post/multipart"
+require "json"
 
 module SearchMe
   class RequestSession
-    attr_reader :server_address
+    attr_reader :server_address, :index, :index_times, :query_times, :query_results
 
     def initialize(server_address)
       @server_address = server_address
-    end
-
-    def index
-      @index ||= {}
+      @index_times = []
+      @query_times = []
+      @query_results = {}
+      @index = {}
     end
 
     def build_index!
@@ -37,7 +38,7 @@ module SearchMe
 
     def prep
       source_files.each do |f_path|
-        puts "prep sending file #{f_path}"
+        start = Time.now
         url = URI.parse("#{server_address}/index")
         File.open(f_path) do |file|
           req = Net::HTTP::Post::Multipart.new url.path,
@@ -47,6 +48,7 @@ module SearchMe
           end
           puts res
         end
+        query_times << (Time.now - start)
       end
     end
 
@@ -56,13 +58,23 @@ module SearchMe
         answer = index[word]
         puts "will query against word \"#{word}\""
         puts "and expect result #{answer}"
+
+        start = Time.now
+          result = JSON.parse(Faraday.post("#{server_address}/query", {query: word}).body)
+        query_times << (Time.now - start)
+        query_results[word] = result
       end
+    end
+
+    def output_results
+      puts "performed 100 queries in average of #{query_times.reduce(:+)/query_times.length} seconds"
     end
 
     def run
       build_index!
       prep
       run_queries
+      output_results
     end
 
     def source_files
