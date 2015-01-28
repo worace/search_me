@@ -1,6 +1,7 @@
 #!/usr/bin/env ruby
 
 require File.join(__dir__, "..", "lib", "search_me")
-puts ARGV
 
-SearchMe::RequestSession.new(ARGV[0], 12).run
+server_address = ARGV[0]
+difficulty = ARGV[1].to_i > 0 ? ARGV[1].to_i : 1
+SearchMe::RequestSession.new(server_address, difficulty).run

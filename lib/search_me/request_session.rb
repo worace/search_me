@@ -46,7 +46,7 @@ module SearchMe
       index_queue = Queue.new
       source_files.each { |path| index_queue.push(path) }
 
-      (0..difficulty).each do
+      (0...difficulty).each do
         Thread.new do
           begin
             while f_path = index_queue.pop(true)
@@ -75,7 +75,7 @@ module SearchMe
 
       500.times { q.push(index.keys.sample) }
 
-      (0..difficulty).each do |i|
+      (0...difficulty).each do |i|
         Thread.new do
           begin
             while word = q.pop(true)
@@ -95,7 +95,9 @@ module SearchMe
     end
 
     def output_results
+      puts "Congrats, you finished a search_me session on difficulty level #{difficulty}"
       puts "indexed #{source_files.count} files in average of #{index_times.reduce(:+)/index_times.length} seconds"
+      puts "total index time: #{index_times.reduce(:+)}"
       puts "performed 100 queries in average of #{query_times.reduce(:+)/query_times.length} seconds"
       correct = []
       incorrect = []
