@@ -8,9 +8,9 @@ Gem::Specification.new do |spec|
   spec.version       = SearchMe::VERSION
   spec.authors       = ["worace"]
   spec.email         = ["horace.d.williams@gmail.com"]
-  spec.summary       = %q{TODO: Write a short summary. Required.}
-  spec.description   = %q{TODO: Write a longer description. Optional.}
-  spec.homepage      = ""
+  spec.summary       = %q{CLI executable for a text-indexing exercise.}
+  spec.description   = %q{run with `search_me <server_address>`}
+  spec.homepage      = "https://github.com/worace/search_me"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0")
