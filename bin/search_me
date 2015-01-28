@@ -1,0 +1,4 @@
+#!/usr/bin/env ruby
+
+require 'search_me'
+puts ARGV
