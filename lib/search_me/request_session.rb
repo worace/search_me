@@ -43,18 +43,29 @@ module SearchMe
     end
 
     def prep
-      source_files.each do |f_path|
-        start = Time.now
-        url = URI.parse("#{server_address}/index")
-        File.open(f_path) do |file|
-          req = Net::HTTP::Post::Multipart.new url.path,
-            "file" => UploadIO.new(file, "text", f_path.split("/").last)
-          res = Net::HTTP.start(url.host, url.port) do |http|
-            http.request(req)
+      index_queue = Queue.new
+      source_files.each { |path| index_queue.push(path) }
+
+      (0..difficulty).each do
+        Thread.new do
+          begin
+            while f_path = index_queue.pop(true)
+              start = Time.now
+              url = URI.parse("#{server_address}/index")
+              File.open(f_path) do |file|
+                req = Net::HTTP::Post::Multipart.new url.path,
+                  "file" => UploadIO.new(file, "text", f_path.split("/").last)
+                res = Net::HTTP.start(url.host, url.port) do |http|
+                  http.request(req)
+                end
+                puts res
+              end
+              index_times << (Time.now - start)
+            end
+          rescue ThreadError
+            puts "index queue empty, stopping indexer thread"
           end
-          puts res
-        end
-        index_times << (Time.now - start)
+        end.join
       end
       puts "finished prep!"
     end
@@ -77,8 +88,7 @@ module SearchMe
               query_results[word] = result
             end
           rescue ThreadError
-            puts "queue empty, done"
-            #end the thread when the queue is empty
+            puts "query queue empty, stopping query thread"
           end
         end.join
       end
@@ -99,6 +109,7 @@ module SearchMe
 
       puts "correct queries: #{correct.count}"
       puts "incorrect: #{incorrect.count}"
+      puts incorrect
       puts "success ratio: #{incorrect.any? ? (correct.count / incorrect.count) : "100" }%"
     end
 
@@ -110,7 +121,7 @@ module SearchMe
     end
 
     def source_files
-      Dir.glob("./source_files/*.txt")
+      Dir.glob("./source_files/*")
     end
   end
 end
