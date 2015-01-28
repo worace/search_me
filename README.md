@@ -3,6 +3,17 @@
 Interactive programming exercise for building a simple text index and
 query server.
 
+### To install the gem
+
+the gem `specific_install` allows you to install 'edge' versions of gems
+from github. install it, and use it to install `search_me` from the
+source in this repositiory:
+
+```
+gem install specific_install
+gem specific_install https://github.com/worace/search_me
+```
+
 ### CLI
 
 Start a session with the executable `search_me`; it requires 1 command
