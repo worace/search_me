@@ -18,7 +18,8 @@ module SearchMe
       source_files.each do |f_path|
         filename = f_path.split("/").last
         File.readlines(f_path).each_with_index do |line, l_index|
-          line.split.each_with_index do |word, w_index|
+          line.split(/ |-|—/).each_with_index do |word, w_index|
+            word = tokenize(word)
             if index[word].nil?
               index[word] = ["#{filename}:#{l_index + 1}:#{w_index + 1}"]
             else
@@ -28,6 +29,10 @@ module SearchMe
         end
       end
       puts "made an index in #{Time.now - start} seconds"
+    end
+
+    def tokenize(word)
+      word.downcase.gsub(/\W|_/,"")
     end
 
     def prep
@@ -46,15 +51,11 @@ module SearchMe
     end
 
     def run_queries
-      10.times do
-        file = source_files.sample
-        lines = File.readlines(file)
-        line_index = rand(lines.length)
-        #puts "words: #{lines[line_index].split}"
-        word_index = rand(lines[line_index].split.length)
-        word = lines[line_index].split[word_index]
+      100.times do
+        word = index.keys.sample
+        answer = index[word]
         puts "will query against word \"#{word}\""
-        puts "and expect result file: #{file.split("/").last}, line: #{line_index + 1}, word: #{word_index + 1}"
+        puts "and expect result #{answer}"
       end
     end
 
@@ -91,3 +92,9 @@ end
 # bronze / silver / gold?
 #
 #
+        #file = source_files.sample
+        #lines = File.readlines(file)
+        #line_index = rand(lines.length)
+        ##puts "words: #{lines[line_index].split}"
+        #word_index = rand(lines[line_index].split.length).to_i
+        #word = lines[line_index].split[word_index]
