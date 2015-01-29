@@ -14,6 +14,16 @@ gem install specific_install
 gem specific_install https://github.com/worace/search_me
 ```
 
+### Word sanitization
+
+To make things more consistent, the server expects words to be
+separated and tokenized based on the following rules:
+
+* Words should be separated by the characters: `" ", "-", "—"`
+* Words should be downcased when indexed.
+* Non-word characters (`\W` in perl-style regexes) and `"_"` characters
+  should be removed from each word
+
 ### CLI
 
 Start a session with the executable `search_me`; it requires 1 command
