@@ -1,6 +1,7 @@
 require "faraday"
 require "net/http/post/multipart"
 require "json"
+require "yaml"
 
 module SearchMe
   class RequestSession
@@ -102,7 +103,7 @@ module SearchMe
       correct = []
       incorrect = []
       query_results.each do |word, results|
-        if (results - @index[word]).count == 0
+        if results.sort == @index[word].sort
           correct << word
         else
           incorrect << word
@@ -119,10 +120,16 @@ module SearchMe
     end
 
     def run
-      build_index!
+      load_samples
       prep
       run_queries
       output_results
+    end
+
+    def load_samples
+      puts "load samples"
+      index_path = File.join(__dir__, "..", "..", "indices", "samples.yml")
+      @index = Hash[YAML.load(File.read(index_path))]
     end
 
     def source_files

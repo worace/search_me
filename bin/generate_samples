@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+
+require File.join(__dir__, "..", "lib", "search_me")
+require "yaml"
+require "set"
+
+session = SearchMe::RequestSession.new(ARGV[0])
+session.build_index!
+
+sample_queries = session.index.to_a.shuffle.first(5000)
+
+sample_path = File.join(__dir__, "..", "indices", "samples.yml")
+File.open(sample_path, 'w') { |file| file.write(sample_queries) }
