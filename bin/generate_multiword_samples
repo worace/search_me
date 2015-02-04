@@ -53,5 +53,5 @@ index["our email newsletter to hear"] = Set.new([position("/DonQbo", 3, 2)])
 
 add_repeats(index)
 
-archive = File.join(__dir__, "..", "indices", "multiword_samples.yml")
+archive = File.join(__dir__, "..", "indices", "medium_queries.yml")
 File.open(archive, 'w') { |file| file.write(YAML.dump(index)) }

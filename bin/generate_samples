@@ -9,5 +9,5 @@ session.build_index!
 
 sample_queries = session.index.to_a.shuffle.first(5000)
 
-sample_path = File.join(__dir__, "..", "indices", "samples.yml")
-File.open(sample_path, 'w') { |file| file.write(sample_queries) }
+sample_path = File.join(__dir__, "..", "indices", "easy_queries.yml")
+File.open(sample_path, 'w') { |file| file.write(YAML.dump(sample_queries)) }
