@@ -3,5 +3,4 @@
 require File.join(__dir__, "..", "lib", "search_me")
 
 server_address = ARGV[0]
-difficulty = ARGV[1].to_i > 0 ? ARGV[1].to_i : 1
-SearchMe::RequestSession.new(server_address, difficulty).run
+SearchMe::RequestSession.new(server_address).run

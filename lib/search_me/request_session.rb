@@ -2,24 +2,26 @@ require "faraday"
 require "net/http/post/multipart"
 require "json"
 require "yaml"
+require "pry"
 
 module SearchMe
   class RequestSession
-    EASY_QUERY_COUNT = 5
+    QUERY_COUNTS = {:easy => 5, :medium => 5}
+    DIFFICULTY_LEVELS = [:easy, :medium]
+    PAR_FACTOR = 1
+
     attr_reader :server_address,
-                :easy_index,
+                :index,
                 :index_times,
                 :query_times,
-                :query_results,
-                :difficulty
+                :query_results
 
-    def initialize(server_address, difficulty = 2)
-      @difficulty = difficulty
+    def initialize(server_address)
       @server_address = server_address
       @index_times = []
       @query_times = []
-      @query_results = {}
-      @easy_index = {}
+      @query_results = {:easy => {}, :medium => {}}
+      @index = {:easy => {}, :medium => {}}
     end
 
     def build_index!
@@ -30,9 +32,9 @@ module SearchMe
           line.split(/ |-|—/).each_with_index do |word, w_index|
             word = tokenize(word)
             if index[word].nil?
-              index[word] = ["#{filename}:#{l_index + 1}:#{w_index + 1}"]
+              index[word] = ["#{filename}:#{l_index}:#{w_index}"]
             else
-              index[word] << "#{filename}:#{l_index + 1}:#{w_index + 1}"
+              index[word] << "#{filename}:#{l_index}:#{w_index}"
             end
           end
         end
@@ -45,10 +47,13 @@ module SearchMe
     end
 
     def prep
-      index_queue = Queue.new
-      source_files.first(1).each { |path| index_queue.push(path) }
+      #clear server's existing index
+      Faraday.delete("#{server_address}/index")
 
-      (0...difficulty).each do
+      index_queue = Queue.new
+      source_files.each { |path| index_queue.push(path) }
+
+      PAR_FACTOR.times do
         Thread.new do
           begin
             while f_path = index_queue.pop(true)
@@ -72,14 +77,15 @@ module SearchMe
       puts "finished prep!"
     end
 
-    def run_queries
+    def run_queries(difficulty)
+      puts "Will perform #{QUERY_COUNTS[difficulty]} queries on Difficulty: #{difficulty}"
       q = Queue.new
 
-      EASY_QUERY_COUNT.times do
-        q.push(easy_index.keys.sample)
+      QUERY_COUNTS[difficulty].times do
+        q.push(index[difficulty].keys.sample)
       end
 
-      difficulty.times do |i|
+      PAR_FACTOR.times do |i|
         Thread.new do
           begin
             while query = q.pop(true)
@@ -87,31 +93,31 @@ module SearchMe
               start = Time.now
               result = JSON.parse(Faraday.post("#{server_address}/query", {query: query}).body)
               query_times << (Time.now - start)
-              query_results[query] = result
+              query_results[difficulty][query] = result
             end
           rescue ThreadError
-            puts "query queue empty, stopping query thread"
+            puts "#{difficulty} query queue empty, stopping query thread"
           end
         end.join
       end
     end
 
-    def run_multiword_queries
-      puts @med_index
-    end
-
-    def output_results
-      puts "Congrats, you finished a search_me session on difficulty level #{difficulty}"
+    def output_results(difficulty)
+      puts "Congrats, #{difficulty} queries completed"
       puts "indexed #{source_files.count} files in average of #{index_times.reduce(:+)/index_times.length} seconds"
       puts "total index time: #{index_times.reduce(:+)}"
+
       puts "performed 100 queries in average of #{query_times.reduce(:+)/query_times.length} seconds"
       correct = []
       incorrect = []
-      query_results.each do |word, results|
-        if results.sort == @easy_index[word].sort
-          correct << word
-        else
-          incorrect << word
+      query_results.each do |diff, results|
+        results.each do |query, result|
+          if result.sort == index[diff][query].to_a.sort
+            correct << query
+          else
+            puts "incorrect results for query #{query}; got: #{result}; should have been: #{index[diff][query]}"
+            incorrect << query
+          end
         end
       end
 
@@ -127,19 +133,20 @@ module SearchMe
     def run
       load_samples
       prep
-      run_queries
-      run_multiword_queries
-      #output_results
+      run_queries(:easy)
+      run_queries(:medium)
+      output_results(:easy)
+      output_results(:medium)
     end
 
     def load_samples
       puts "load samples"
-      @easy_index = Hash[YAML.load(File.read(File.join(__dir__, "..", "..", "indices", "samples.yml")))]
-      @med_index = YAML.load(File.read(File.join(__dir__, "..", "..", "indices", "multiword_samples.yml")))
+      @index[:easy] = Hash[YAML.load(File.read(File.join(__dir__, "..", "..", "indices", "easy_queries.yml")))]
+      @index[:medium] = YAML.load(File.read(File.join(__dir__, "..", "..", "indices", "medium_queries.yml")))
     end
 
     def source_files
-      Dir.glob(File.join(__dir__, "..", "..", "source_files", "*"))
+      Dir.glob(File.join(__dir__, "..", "..", "sanitized_files", "*"))
     end
   end
 end
