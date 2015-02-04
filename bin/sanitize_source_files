@@ -1,0 +1,48 @@
+#!/usr/bin/env ruby
+
+def remove_empty_lines(lines)
+  lines.reject { |l| l.match(/^$/) }
+end
+
+def remove_leading_whitespace(lines)
+  lines.map { |l| l.gsub(/^ +/, "") }
+end
+
+def downcase(lines)
+  lines.map(&:downcase)
+end
+
+def split_dashes(lines)
+  lines.map { |l| l.gsub(/-+|—+|–+/, " ") }
+end
+
+def remove_non_word_chars(lines)
+  lines.map { |l| l.split.map { |w| w.gsub(/\W|_/, "") }.join(" ") }
+end
+
+def remove_short_lines(lines)
+  lines.reject { |l| l.split.length < 8 }
+end
+
+def save_file(path, lines)
+  File.write(path, lines.join("\n"))
+  puts lines
+  puts path
+end
+
+def new_path(path)
+  File.join(__dir__, "..", "sanitized_files", path.split("/").last)
+end
+
+files = Dir.glob(File.join(__dir__, "..", "source_files", "*"))
+
+files.each do |f|
+  puts f
+  lines = File.readlines(f)
+  save_file(new_path(f), remove_short_lines(
+                           remove_non_word_chars(
+                              split_dashes(
+                                downcase(
+                                  remove_leading_whitespace(
+                                    remove_empty_lines(lines)))))))
+end
