@@ -5,8 +5,9 @@ require "yaml"
 
 module SearchMe
   class RequestSession
+    EASY_QUERY_COUNT = 5
     attr_reader :server_address,
-                :index,
+                :easy_index,
                 :index_times,
                 :query_times,
                 :query_results,
@@ -18,7 +19,7 @@ module SearchMe
       @index_times = []
       @query_times = []
       @query_results = {}
-      @index = {}
+      @easy_index = {}
     end
 
     def build_index!
@@ -45,7 +46,7 @@ module SearchMe
 
     def prep
       index_queue = Queue.new
-      source_files.each { |path| index_queue.push(path) }
+      source_files.first(1).each { |path| index_queue.push(path) }
 
       (0...difficulty).each do
         Thread.new do
@@ -74,25 +75,29 @@ module SearchMe
     def run_queries
       q = Queue.new
 
-      500.times { q.push(index.keys.sample) }
+      EASY_QUERY_COUNT.times do
+        q.push(easy_index.keys.sample)
+      end
 
-      (0...difficulty).each do |i|
+      difficulty.times do |i|
         Thread.new do
           begin
-            while word = q.pop(true)
-              answer = index[word]
-              puts "will query against word \"#{word}\""
-              puts "and expect result #{answer}"
+            while query = q.pop(true)
+              puts "query #{query}"
               start = Time.now
-              result = JSON.parse(Faraday.post("#{server_address}/query", {query: word}).body)
+              result = JSON.parse(Faraday.post("#{server_address}/query", {query: query}).body)
               query_times << (Time.now - start)
-              query_results[word] = result
+              query_results[query] = result
             end
           rescue ThreadError
             puts "query queue empty, stopping query thread"
           end
         end.join
       end
+    end
+
+    def run_multiword_queries
+      puts @med_index
     end
 
     def output_results
@@ -103,7 +108,7 @@ module SearchMe
       correct = []
       incorrect = []
       query_results.each do |word, results|
-        if results.sort == @index[word].sort
+        if results.sort == @easy_index[word].sort
           correct << word
         else
           incorrect << word
@@ -123,13 +128,14 @@ module SearchMe
       load_samples
       prep
       run_queries
-      output_results
+      run_multiword_queries
+      #output_results
     end
 
     def load_samples
       puts "load samples"
-      index_path = File.join(__dir__, "..", "..", "indices", "samples.yml")
-      @index = Hash[YAML.load(File.read(index_path))]
+      @easy_index = Hash[YAML.load(File.read(File.join(__dir__, "..", "..", "indices", "samples.yml")))]
+      @med_index = YAML.load(File.read(File.join(__dir__, "..", "..", "indices", "multiword_samples.yml")))
     end
 
     def source_files

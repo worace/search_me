@@ -3,29 +3,55 @@
 require File.join(__dir__, "..", "lib", "search_me")
 require "yaml"
 
-files = Dir.glob(File.join(__dir__, "..", "source_files", "*"))
+files = Dir.glob(File.join(__dir__, "..", "sanitized_files", "*"))
 
-files.reduce({}) do |car,f|
-  lines = File.readlines(f)
+def position(path, line_i, word_i)
+  [path.split("/").last, line_i, word_i].join(":")
 
-  10.times do
-    line_i = rand(lines.length)
-    if lines[line_i].split.empty?
-      puts "skipping empty line"
-      next
-    end
-    line_no = line_i + 1
-    words = lines[line_i].split
-    word_i = rand(words.length - 4)
-    word_no = word_i + 1
-    snippet = words[word_i..(rand(7) + 3)]
-    if snippet.nil?
-      puts lines[line_i]
-      puts "nil snippet at line #{line_i}, word #{word_i}, line; #{lines[line_i]}"
-    end
-    snippet = snippet.join(" ")
-
-    puts "got a snippet #{snippet} at file #{f}, line #{line_no}, word #{word_no}"
-  end
-  car
 end
+
+index = files.first(1).reduce({}) do |car,f|
+        lines = File.readlines(f)
+
+        5.times do
+          line_i = rand(lines.length)
+          words = lines[line_i].split
+          word_i = rand(words.length - 4)
+          length = (rand(7) + 3)
+          snippet = words[word_i..word_i + length]
+          if snippet.empty?
+            raise "nil snippet at line #{line_i}, from word #{word_i} to word #{word_i + length}, line: #{lines[line_i]}"
+          end
+          snippet = snippet.join(" ")
+
+          if car[snippet]
+            car[snippet] << position(f, line_i, word_i)
+          else
+            car[snippet] = Set.new([position(f, line_i, word_i)])
+          end
+        end
+        car
+      end
+
+def add_repeats(index)
+  index.each do |query, positions|
+    appearances = `ack "#{query}" sanitized_files`.split("\n")
+    if appearances.length > 1
+      appearances.each do |str|
+        t = str.split(":") #[path, line no, line]
+        path = t[0]
+        line_idx = t[1].to_i - 1
+        word_idx = t[2].split(query).first.split.length
+        index[query] << position(path, line_idx, word_idx)
+      end
+    end
+  end
+end
+
+# include known repeated string
+index["our email newsletter to hear"] = Set.new([position("/DonQbo", 3, 2)])
+
+add_repeats(index)
+
+archive = File.join(__dir__, "..", "indices", "multiword_samples.yml")
+File.open(archive, 'w') { |file| file.write(YAML.dump(index)) }
