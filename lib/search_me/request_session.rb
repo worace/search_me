@@ -5,6 +5,12 @@ require "yaml"
 require "pry"
 
 module SearchMe
+  class StepFailedError < StandardError
+    attr_reader :step
+    def initialize(step)
+      @step = step
+    end
+  end
   class RequestSession
     QUERY_COUNTS = {:easy => 5, :medium => 5}
     DIFFICULTY_LEVELS = [:easy, :medium]
@@ -19,7 +25,7 @@ module SearchMe
     def initialize(server_address)
       @server_address = server_address
       @index_times = []
-      @query_times = []
+      @query_times = {:easy => [], :medium => []}
       @query_results = {:easy => {}, :medium => {}}
       @index = {:easy => {}, :medium => {}}
     end
@@ -29,8 +35,7 @@ module SearchMe
       source_files.each do |f_path|
         filename = f_path.split("/").last
         File.readlines(f_path).each_with_index do |line, l_index|
-          line.split(/ |-|—/).each_with_index do |word, w_index|
-            word = tokenize(word)
+          line.split.each_with_index do |word, w_index|
             if index[word].nil?
               index[word] = ["#{filename}:#{l_index}:#{w_index}"]
             else
@@ -42,14 +47,17 @@ module SearchMe
       puts "made an index in #{Time.now - start} seconds"
     end
 
-    def tokenize(word)
-      word.downcase.gsub(/\W|_/,"")
+    def clear_index
+      puts "Clear index"
+      unless Faraday.delete("#{server_address}/index").success?
+        raise StepFailedError.new("clear index"), "Server must respond to DELETE '/index' by clearing existing index"
+      end
+    rescue Faraday::ConnectionFailed
+      raise StepFailedError.new("CLEAR INDEX"), "Server must respond to DELETE '/index' by clearing existing index"
     end
 
-    def prep
-      #clear server's existing index
-      Faraday.delete("#{server_address}/index")
-
+    def build_index
+      puts "Build index"
       index_queue = Queue.new
       source_files.each { |path| index_queue.push(path) }
 
@@ -57,6 +65,7 @@ module SearchMe
         Thread.new do
           begin
             while f_path = index_queue.pop(true)
+              puts "indexing file: #{f_path.split("/").last}"
               start = Time.now
               url = URI.parse("#{server_address}/index")
               File.open(f_path) do |file|
@@ -65,82 +74,102 @@ module SearchMe
                 res = Net::HTTP.start(url.host, url.port) do |http|
                   http.request(req)
                 end
-                puts res
+                unless res.kind_of?(Net::HTTPOK)
+                  raise StepFailedError.new("Index Files"), "Failed indexing file: #{f_path.split("/").last}\n Reason: #{res.inspect}"
+                end
               end
               index_times << (Time.now - start)
             end
           rescue ThreadError
-            puts "index queue empty, stopping indexer thread"
           end
         end.join
       end
-      puts "finished prep!"
     end
 
     def run_queries(difficulty)
+      puts "*******************************************"
       puts "Will perform #{QUERY_COUNTS[difficulty]} queries on Difficulty: #{difficulty}"
-      q = Queue.new
-
-      QUERY_COUNTS[difficulty].times do
-        q.push(index[difficulty].keys.sample)
-      end
+      q = query_queue(difficulty)
 
       PAR_FACTOR.times do |i|
         Thread.new do
           begin
             while query = q.pop(true)
-              puts "query #{query}"
-              start = Time.now
-              result = JSON.parse(Faraday.post("#{server_address}/query", {query: query}).body)
-              query_times << (Time.now - start)
-              query_results[difficulty][query] = result
+              track_query(difficulty, query)
             end
           rescue ThreadError
-            puts "#{difficulty} query queue empty, stopping query thread"
           end
         end.join
       end
+      puts "Queries on difficulty: #{difficulty} completed"
+      puts "*******************************************"
+    end
+
+    def query_queue(difficulty)
+      q = Queue.new
+      QUERY_COUNTS[difficulty].times do
+        q.push(index[difficulty].keys.sample)
+      end
+      q
+    end
+
+    def track_query(difficulty, query)
+      start = Time.now
+      response = Faraday.post("#{server_address}/query", {query: query})
+      unless response.success?
+        raise StepFailedError.new("Queries: #{difficulty}"), "Query failed with status: #{response.status}, #{response.body}"
+      end
+      result = JSON.parse(response.body)
+      query_times[difficulty] << (Time.now - start)
+      query_results[difficulty][query] = result
     end
 
     def output_results(difficulty)
-      puts "Congrats, #{difficulty} queries completed"
-      puts "indexed #{source_files.count} files in average of #{index_times.reduce(:+)/index_times.length} seconds"
-      puts "total index time: #{index_times.reduce(:+)}"
-
-      puts "performed 100 queries in average of #{query_times.reduce(:+)/query_times.length} seconds"
       correct = []
       incorrect = []
-      query_results.each do |diff, results|
-        results.each do |query, result|
-          if result.sort == index[diff][query].to_a.sort
-            correct << query
-          else
-            puts "incorrect results for query #{query}; got: #{result}; should have been: #{index[diff][query]}"
-            incorrect << query
-          end
+      query_results[difficulty].each do |query, result|
+        if result.sort == index[difficulty][query].to_a.sort
+          correct << query
+        else
+          incorrect << query
         end
       end
 
+      puts "*******************************************"
+      puts "performed #{QUERY_COUNTS[difficulty]} queries in average of #{query_times[difficulty].reduce(:+)/query_times[difficulty].length} seconds"
+      puts "Status: #{incorrect.any? ? "FAILURE" : "SUCCESS"}"
       puts "correct queries: #{correct.count}"
       puts "incorrect: #{incorrect.count}"
       puts "success ratio: #{incorrect.any? ? (correct.count / incorrect.count) : "100" }%"
+      puts "*******************************************"
 
       if incorrect.any?
-        puts "incorrect words: #{incorrect}"
+        raise StepFailedError.new("Queries (#{difficulty})"), "Sorry, you failed #{difficulty}."
       end
+    end
+
+    def output_index_results
+      puts "*******************************************"
+      puts "Congrats: Indexing Completed!"
+      puts "total index time: #{index_times.reduce(:+)}"
+      puts "indexed #{source_files.count} files in average of #{index_times.reduce(:+)/index_times.length} seconds"
+      puts "*******************************************"
     end
 
     def run
       load_samples
-      prep
+      clear_index
+      build_index
+      output_index_results
       run_queries(:easy)
-      run_queries(:medium)
       output_results(:easy)
+      run_queries(:medium)
       output_results(:medium)
+    rescue StepFailedError => ex
+      puts "Failure on step: #{ex.step}. Problem: #{ex.message}"
     end
 
     def load_samples
-      puts "load samples"
       @index[:easy] = Hash[YAML.load(File.read(File.join(__dir__, "..", "..", "indices", "easy_queries.yml")))]
       @index[:medium] = YAML.load(File.read(File.join(__dir__, "..", "..", "indices", "medium_queries.yml")))
     end
