@@ -4,10 +4,10 @@ require File.join(__dir__, "..", "lib", "search_me")
 require "yaml"
 require "set"
 
-session = SearchMe::RequestSession.new(ARGV[0])
-session.build_index!
+indexer = SearchMe::Indexer.new
+indexer.build_index!
 
-sample_queries = session.index.to_a.shuffle.first(5000)
+sample_queries = indexer.index.to_a.shuffle.first(5000)
 
 sample_path = File.join(__dir__, "..", "indices", "easy_queries.yml")
 File.open(sample_path, 'w') { |file| file.write(YAML.dump(sample_queries)) }

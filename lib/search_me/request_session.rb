@@ -3,6 +3,7 @@ require "net/http/post/multipart"
 require "json"
 require "yaml"
 require "pry"
+require_relative "./source_file_list"
 
 module SearchMe
   class StepFailedError < StandardError
@@ -11,6 +12,7 @@ module SearchMe
       @step = step
     end
   end
+
   class RequestSession
     QUERY_COUNTS = {:easy => 5, :medium => 5}
     DIFFICULTY_LEVELS = [:easy, :medium]
@@ -27,23 +29,6 @@ module SearchMe
       @query_times = {:easy => [], :medium => []}
       @query_results = {:easy => {}, :medium => {}}
       @index = {:easy => {}, :medium => {}}
-    end
-
-    def build_index!
-      start = Time.now
-      source_files.each do |f_path|
-        filename = f_path.split("/").last
-        File.readlines(f_path).each_with_index do |line, l_index|
-          line.split.each_with_index do |word, w_index|
-            if index[word].nil?
-              index[word] = ["#{filename}:#{l_index}:#{w_index}"]
-            else
-              index[word] << "#{filename}:#{l_index}:#{w_index}"
-            end
-          end
-        end
-      end
-      puts "made an index in #{Time.now - start} seconds"
     end
 
     def clear_index
@@ -150,7 +135,7 @@ module SearchMe
     end
 
     def source_files
-      Dir.glob(File.join(__dir__, "..", "..", "sanitized_files", "*"))
+      SourceFileList.new.files
     end
   end
 end
