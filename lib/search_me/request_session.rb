@@ -14,7 +14,6 @@ module SearchMe
   class RequestSession
     QUERY_COUNTS = {:easy => 5, :medium => 5}
     DIFFICULTY_LEVELS = [:easy, :medium]
-    PAR_FACTOR = 1
 
     attr_reader :server_address,
                 :index,
@@ -58,59 +57,35 @@ module SearchMe
 
     def build_index
       puts "Build index"
-      index_queue = Queue.new
-      source_files.each { |path| index_queue.push(path) }
 
-      PAR_FACTOR.times do
-        Thread.new do
-          begin
-            while f_path = index_queue.pop(true)
-              puts "indexing file: #{f_path.split("/").last}"
-              start = Time.now
-              url = URI.parse("#{server_address}/index")
-              File.open(f_path) do |file|
-                req = Net::HTTP::Post::Multipart.new url.path,
-                  "file" => UploadIO.new(file, "text", f_path.split("/").last)
-                res = Net::HTTP.start(url.host, url.port) do |http|
-                  http.request(req)
-                end
-                unless res.kind_of?(Net::HTTPOK)
-                  raise StepFailedError.new("Index Files"), "Failed indexing file: #{f_path.split("/").last}\n Reason: #{res.inspect}"
-                end
-              end
-              index_times << (Time.now - start)
-            end
-          rescue ThreadError
+      source_files.each do |f_path|
+        puts "indexing file: #{f_path.split("/").last}"
+        start = Time.now
+        url = URI.parse("#{server_address}/index")
+        File.open(f_path) do |file|
+          req = Net::HTTP::Post::Multipart.new url.path,
+            "file" => UploadIO.new(file, "text", f_path.split("/").last)
+          res = Net::HTTP.start(url.host, url.port) do |http|
+            http.request(req)
           end
-        end.join
+          unless res.kind_of?(Net::HTTPOK)
+            raise StepFailedError.new("Index Files"), "Failed indexing file: #{f_path.split("/").last}\n Reason: #{res.inspect}"
+          end
+        end
+        index_times << (Time.now - start)
       end
     end
 
     def run_queries(difficulty)
       puts "*******************************************"
       puts "Will perform #{QUERY_COUNTS[difficulty]} queries on Difficulty: #{difficulty}"
-      q = query_queue(difficulty)
 
-      PAR_FACTOR.times do |i|
-        Thread.new do
-          begin
-            while query = q.pop(true)
-              track_query(difficulty, query)
-            end
-          rescue ThreadError
-          end
-        end.join
+      QUERY_COUNTS[difficulty].times do
+        query = index[difficulty].keys.sample
+        track_query(difficulty, query)
       end
       puts "Queries on difficulty: #{difficulty} completed"
       puts "*******************************************"
-    end
-
-    def query_queue(difficulty)
-      q = Queue.new
-      QUERY_COUNTS[difficulty].times do
-        q.push(index[difficulty].keys.sample)
-      end
-      q
     end
 
     def track_query(difficulty, query)
