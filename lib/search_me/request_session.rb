@@ -14,7 +14,7 @@ module SearchMe
   end
 
   class RequestSession
-    QUERY_COUNTS = {:easy => 5, :medium => 5}
+    QUERY_COUNTS = {:easy => 300, :medium => 75}
     DIFFICULTY_LEVELS = [:easy, :medium]
 
     attr_reader :server_address,

@@ -10,38 +10,45 @@ def position(path, line_i, word_i)
 
 end
 
-index = files.first(1).reduce({}) do |car,f|
-        lines = File.readlines(f)
+index = files.reduce({}) do |car,f|
+  lines = File.readlines(f)
 
-        5.times do
-          line_i = rand(lines.length)
-          words = lines[line_i].split
-          word_i = rand(words.length - 4)
-          length = (rand(7) + 3)
-          snippet = words[word_i..word_i + length]
-          if snippet.empty?
-            raise "nil snippet at line #{line_i}, from word #{word_i} to word #{word_i + length}, line: #{lines[line_i]}"
-          end
-          snippet = snippet.join(" ")
+  3.times do
+    line_i = rand(lines.length)
+    words = lines[line_i].split
+    word_i = rand(words.length - 4)
+    length = (rand(7) + 3)
+    snippet = words[word_i..word_i + length]
+    if snippet.empty?
+      raise "nil snippet at line #{line_i}, from word #{word_i} to word #{word_i + length}, line: #{lines[line_i]}"
+    end
+    snippet = snippet.join(" ")
 
-          if car[snippet]
-            car[snippet] << position(f, line_i, word_i)
-          else
-            car[snippet] = Set.new([position(f, line_i, word_i)])
-          end
-        end
-        car
-      end
+    if car[snippet]
+      car[snippet] << position(f, line_i, word_i)
+    else
+      car[snippet] = Set.new([position(f, line_i, word_i)])
+    end
+  end
+  car
+end
 
 def add_repeats(index)
   index.each do |query, positions|
-    appearances = `ack "#{query}" sanitized_files`.split("\n")
+    appearances = `ag "#{query}" sanitized_files`.split("\n")
+    puts "appearances for query '#{query}':"
+    puts appearances
     if appearances.length > 1
       appearances.each do |str|
+        puts "dealing with dup appearance #{str}"
         t = str.split(":") #[path, line no, line]
         path = t[0]
         line_idx = t[1].to_i - 1
-        word_idx = t[2].split(query).first.split.length
+        word_idx = if t[2].split(query).nil? #query is the whole line
+                     word_idx = [0]
+                   else
+                     t[2].split(query).first.split.length
+                   end
         index[query] << position(path, line_idx, word_idx)
       end
     end
