@@ -40,10 +40,10 @@ module SearchMe
       raise StepFailedError.new("CLEAR INDEX"), "Server must respond to DELETE '/index' by clearing existing index"
     end
 
-    def build_index
+    def build_index(files = source_files)
       puts "Build index"
 
-      source_files.each do |f_path|
+      files.each do |f_path|
         puts "indexing file: #{f_path.split("/").last}"
         start = Time.now
         url = URI.parse("#{server_address}/index")
@@ -61,11 +61,11 @@ module SearchMe
       end
     end
 
-    def run_queries(difficulty)
+    def run_queries(difficulty, num_queries)
       puts "*******************************************"
-      puts "Will perform #{QUERY_COUNTS[difficulty]} queries on Difficulty: #{difficulty}"
+      puts "Will perform #{num_queries} queries on Difficulty: #{difficulty}"
 
-      QUERY_COUNTS[difficulty].times do
+      num_queries.times do
         query = index[difficulty].keys.sample
         track_query(difficulty, query)
       end
@@ -116,14 +116,31 @@ module SearchMe
       puts "*******************************************"
     end
 
+    def run_mini
+      @index = {:easy => {"comedy" => ["BGaEaa:353:8","BGaEab:0:1", "BGaEab:874:2"]},
+                :medium => {"is a reprint of the" => ["BGaEaa:7:7"],
+                            "refined comedy of european christianity" => ["BGaEab:874:1"]}
+               }
+      files = source_files.first(2)
+      clear_index
+      build_index(files)
+      output_index_results
+      run_queries(:easy, 2)
+      output_results(:easy)
+      run_queries(:medium, 2)
+      output_results(:medium)
+    rescue StepFailedError => ex
+      puts "Failure on step: #{ex.step}. Problem: #{ex.message}"
+    end
+
     def run
       load_samples
       clear_index
       build_index
       output_index_results
-      run_queries(:easy)
+      run_queries(:easy, QUERY_COUNTS[:easy])
       output_results(:easy)
-      run_queries(:medium)
+      run_queries(:medium, QUERY_COUNTS[:medium])
       output_results(:medium)
     rescue StepFailedError => ex
       puts "Failure on step: #{ex.step}. Problem: #{ex.message}"

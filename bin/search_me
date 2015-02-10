@@ -3,4 +3,9 @@
 require File.join(__dir__, "..", "lib", "search_me")
 
 server_address = ARGV[0]
-SearchMe::RequestSession.new(server_address).run
+
+if ARGV[1] == "mini"
+  SearchMe::RequestSession.new(server_address).run_mini
+else
+  SearchMe::RequestSession.new(server_address).run
+end
