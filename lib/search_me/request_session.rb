@@ -118,7 +118,7 @@ module SearchMe
 
     def run_mini
       @index = {:easy => {"comedy" => ["BGaEaa:353:8","BGaEab:0:1", "BGaEab:874:2"]},
-                :medium => {"is a reprint of the" => ["BGaEaa:7:7"],
+                :medium => {"is a reprint of the" => ["BGaEaa:6:2"],
                             "refined comedy of european christianity" => ["BGaEab:874:1"]}
                }
       files = source_files.first(2)
